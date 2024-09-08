@@ -1,7 +1,6 @@
 services:
   stats-server:
     build: stats/stat-server
-    image: stat-server-image
     container_name: stat-server-container
     ports:
       - "9090:9090"
@@ -12,7 +11,6 @@ services:
       - SPRING_DATASOURCE_USERNAME=db_admin
       - SPRING_DATASOURCE_PASSWORD=AbRaKaDaBrA
       - SPRING_DRIVER_CLASS_NAME=org.postgresql.Driver
-
 
   stats-db:
     image: postgres:16.1
@@ -26,7 +24,6 @@ services:
 
   ewm-service:
     build: main-service
-    image: main-server-image
     container_name: main-server-container
     ports:
       - "8080:8080"
