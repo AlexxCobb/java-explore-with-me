@@ -25,6 +25,13 @@ public class ErrorHandler {
         return new ErrorResponse(e.getMessage());
     }
 
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public final ErrorResponse handleInternalServerError(final Throwable e) {
+        log.error("Получен статус 500 Internal Server Error {}", e.getMessage(), e);
+        return new ErrorResponse(e.getMessage());
+    }
+
     @Getter
     private static class ErrorResponse {
         String error;

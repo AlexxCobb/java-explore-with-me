@@ -36,7 +36,7 @@ public class StatisticController {
     public List<StatResponseDto> getStatistics(@RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") String start,
                                                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") String end,
                                                @RequestParam(required = false) List<String> uris,
-                                               @RequestParam(required = false, defaultValue = "false") Boolean unique) {
+                                               @RequestParam(defaultValue = "false") Boolean unique) {
         log.info("Поступил GET-запрос на получение статистики с параметрами," +
                 " начало - {}, конец - {}, события - {}, уникальность - {}", start, end, uris, unique);
 

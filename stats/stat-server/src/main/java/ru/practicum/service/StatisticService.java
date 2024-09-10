@@ -50,5 +50,4 @@ public class StatisticService {
         }
         return !stats.isEmpty() ? stats.stream().map(StatShortMapper::toStatResponseDto).collect(Collectors.toList()) : Collections.emptyList();
     }
-
 }

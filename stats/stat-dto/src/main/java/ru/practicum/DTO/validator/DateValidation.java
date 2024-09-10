@@ -10,7 +10,8 @@ public class DateValidation implements ConstraintValidator<ValidDate, String> {
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext constraintValidatorContext) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String DATE_PATTERN = "yyyy-MM-dd HH:mm:ss";
+        SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_PATTERN);
         dateFormat.setLenient(false);
         try {
             dateFormat.parse(value);

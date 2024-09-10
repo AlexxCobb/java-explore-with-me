@@ -15,8 +15,8 @@ import java.util.List;
 @Component
 public class StatsClient {
 
-    final RestTemplate rest;
-    final String statUrl;
+   private final RestTemplate rest;
+   private final String statUrl;
 
     public StatsClient(RestTemplate rest, @Value("${client.url}") String statUrl) {
         this.rest = rest;
