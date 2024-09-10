@@ -8,9 +8,10 @@ import java.text.SimpleDateFormat;
 
 public class DateValidation implements ConstraintValidator<ValidDate, String> {
 
+    private final String DATE_PATTERN = "yyyy-MM-dd HH:mm:ss";
+
     @Override
     public boolean isValid(String value, ConstraintValidatorContext constraintValidatorContext) {
-        String DATE_PATTERN = "yyyy-MM-dd HH:mm:ss";
         SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_PATTERN);
         dateFormat.setLenient(false);
         try {
