@@ -4,14 +4,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import ru.practicum.dto.UserDto;
-import ru.practicum.dto.UserMapper;
 import ru.practicum.dto.UserParam;
+import ru.practicum.dto.mapper.UserMapper;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.repository.UserRepository;
 import ru.practicum.utils.PaginationServiceClass;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,8 +35,12 @@ public class UserService {
 
     public List<UserDto> getUsers(UserParam userParam) {
         Pageable page = PaginationServiceClass.pagination(userParam.getFrom(), userParam.getSize());
+        if (userParam.getUserIds() == null) {
+            var users = userRepository.findAll(page);
+            return users.stream().map(userMapper::toUserDto).collect(Collectors.toList());
+        }
         var users = userRepository.findByIdIn(userParam.getUserIds(), page);
-        return !users.isEmpty() ? users : Collections.emptyList();
+        return !users.isEmpty() ? users.stream().map(userMapper::toUserDto).collect(Collectors.toList()) : Collections.emptyList();
     }
 
 }

@@ -1,6 +1,5 @@
 package ru.practicum.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,14 +10,11 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString
-@AllArgsConstructor
 @NoArgsConstructor
-public class UserDto {
-    private Long id;
+@AllArgsConstructor
+public class CategoryDto {
 
-    @NotBlank
-    @Email
-    private String email;
+    private Long id;
 
     @NotBlank
     private String name;
