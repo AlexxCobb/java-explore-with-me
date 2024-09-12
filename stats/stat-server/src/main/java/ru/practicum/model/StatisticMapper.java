@@ -1,7 +1,7 @@
 package ru.practicum.model;
 
 import org.springframework.stereotype.Component;
-import ru.practicum.DTO.StatRequestDto;
+import ru.practicum.dto.StatRequestDto;
 import ru.practicum.constants.Constants;
 
 import java.time.LocalDateTime;

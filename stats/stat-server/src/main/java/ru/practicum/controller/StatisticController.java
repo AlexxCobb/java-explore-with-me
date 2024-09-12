@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ru.practicum.DTO.StatRequestDto;
-import ru.practicum.DTO.StatResponseDto;
+import ru.practicum.dto.StatRequestDto;
+import ru.practicum.dto.StatResponseDto;
 import ru.practicum.service.StatisticService;
 
 import java.net.URLDecoder;

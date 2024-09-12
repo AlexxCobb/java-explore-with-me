@@ -6,8 +6,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
-import ru.practicum.DTO.StatRequestDto;
-import ru.practicum.DTO.StatResponseDto;
+import ru.practicum.dto.StatRequestDto;
+import ru.practicum.dto.StatResponseDto;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
