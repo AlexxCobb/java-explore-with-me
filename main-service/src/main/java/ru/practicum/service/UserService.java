@@ -3,10 +3,11 @@ package ru.practicum.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import ru.practicum.dto.UserDto;
-import ru.practicum.dto.UserParam;
+import ru.practicum.dto.user.UserDto;
+import ru.practicum.dto.user.UserParam;
 import ru.practicum.dto.mapper.UserMapper;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.model.User;
 import ru.practicum.repository.UserRepository;
 import ru.practicum.utils.PaginationServiceClass;
 
@@ -43,4 +44,8 @@ public class UserService {
         return !users.isEmpty() ? users.stream().map(userMapper::toUserDto).collect(Collectors.toList()) : Collections.emptyList();
     }
 
+    public User findUserById(Long userId) {
+        return userRepository.findById(userId).orElseThrow(
+                () -> new NotFoundException("Пользователь с id = " + userId + " не найден."));
+    }
 }

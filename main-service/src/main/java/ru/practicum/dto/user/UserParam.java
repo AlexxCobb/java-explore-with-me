@@ -1,6 +1,7 @@
-package ru.practicum.dto;
+package ru.practicum.dto.user;
 
 import jakarta.validation.constraints.Min;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -12,6 +13,7 @@ import java.util.List;
 @Setter
 @ToString
 @NoArgsConstructor
+@AllArgsConstructor
 public class UserParam {
     private List<Long> userIds;
 

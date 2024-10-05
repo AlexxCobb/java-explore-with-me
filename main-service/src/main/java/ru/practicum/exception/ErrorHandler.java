@@ -3,7 +3,11 @@ package ru.practicum.exception;
 import jakarta.validation.ConstraintViolationException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestValueException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -19,10 +23,10 @@ public class ErrorHandler {
         return new ErrorResponse(e.getMessage());
     }
 
-    @ExceptionHandler
+    @ExceptionHandler(value = {BadRequestException.class, NumberFormatException.class, MethodArgumentNotValidException.class, MissingServletRequestParameterException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public final ErrorResponse handleNotFoundException(final BadRequestException e) {
-        log.error("Получен статус 404 Not found {}", e.getMessage(), e);
+    public final ErrorResponse handleBadRequestException(final RuntimeException e) {
+        log.error("Получен статус 400 Bad Request {}", e.getMessage(), e);
         return new ErrorResponse(e.getMessage());
     }
 
@@ -33,9 +37,9 @@ public class ErrorHandler {
         return new ErrorResponse(e.getMessage());
     }
 
-    @ExceptionHandler
+    @ExceptionHandler(value = {ConstraintViolationException.class, DataViolationException.class, DataIntegrityViolationException.class})
     @ResponseStatus(HttpStatus.CONFLICT)
-    public final ErrorResponse handleViolationException(final ConstraintViolationException e) {
+    public final ErrorResponse handleViolationException(final RuntimeException e) {
         log.error("Получен статус 409 Conflict {}", e.getMessage(), e);
         return new ErrorResponse(e.getMessage());
     }

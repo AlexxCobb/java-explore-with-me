@@ -1,21 +1,18 @@
-package ru.practicum.dto;
+package ru.practicum.dto.event;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import ru.practicum.enums.StateAction;
 
 @Getter
 @Setter
 @ToString
-@NoArgsConstructor
 @AllArgsConstructor
-public class CategoryDto {
+@NoArgsConstructor
+public class UpdateEventDto extends NewEventDto {
 
-    private Long id;
-
-    @NotBlank
-    private String name;
+    private StateAction stateAction;
 }

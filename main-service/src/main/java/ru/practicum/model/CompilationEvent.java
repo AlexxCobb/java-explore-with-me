@@ -1,9 +1,12 @@
 package ru.practicum.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,13 +18,22 @@ import lombok.ToString;
 @Setter
 @ToString
 @Entity
-@Table(name = "categories")
+@Table(name = "compilation_events")
 @AllArgsConstructor
 @NoArgsConstructor
-public class Category {
+public class CompilationEvent {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    private String name;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_id")
+    @ToString.Exclude
+    private Event event;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "compilation_id")
+    @ToString.Exclude
+    private Compilation compilation;
 }

@@ -1,5 +1,6 @@
 package ru.practicum.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -15,13 +16,17 @@ import lombok.ToString;
 @Setter
 @ToString
 @Entity
-@Table(name = "categories")
+@Table(name = "compilations")
 @AllArgsConstructor
 @NoArgsConstructor
-public class Category {
+public class Compilation {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    private String name;
+    @Column(name = "is_pinned")
+    private Boolean pinned;
+
+    private String title;
 }
