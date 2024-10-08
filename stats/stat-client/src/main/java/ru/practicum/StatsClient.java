@@ -2,7 +2,10 @@ package ru.practicum;
 
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -15,8 +18,8 @@ import java.util.List;
 @Component
 public class StatsClient {
 
-   private final RestTemplate rest;
-   private final String statUrl;
+    private final RestTemplate rest;
+    private final String statUrl;
 
     public StatsClient(RestTemplate rest, @Value("${client.url}") String statUrl) {
         this.rest = rest;
@@ -28,13 +31,18 @@ public class StatsClient {
         rest.postForEntity(statUrl + "/hit", requestEntity, Void.class);
     }
 
-    public StatResponseDto getStats(String start, String end, List<String> uris, Boolean unique) {
+    public List<StatResponseDto> getStats(String start, String end, List<String> uris, Boolean unique) {
 
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(statUrl + "/stats")
                 .queryParam("start", start).encode(StandardCharsets.UTF_8)
                 .queryParam("end", end).encode(StandardCharsets.UTF_8)
                 .queryParam("uris", uris)
                 .queryParam("unique", unique);
-        return rest.getForObject(builder.toUriString(), StatResponseDto.class);
+
+        ResponseEntity<List<StatResponseDto>> rateResponse =
+                rest.exchange(builder.toUriString(), HttpMethod.GET,
+                        null, new ParameterizedTypeReference<List<StatResponseDto>>() {
+                        });
+        return rateResponse.getBody();
     }
 }

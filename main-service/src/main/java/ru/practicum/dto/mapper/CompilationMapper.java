@@ -8,9 +8,7 @@ import org.mapstruct.NullValueCheckStrategy;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import ru.practicum.dto.compilation.CompilationDtoResponse;
 import ru.practicum.dto.compilation.NewCompilationDto;
-import ru.practicum.dto.event.UpdateEventDto;
 import ru.practicum.model.Compilation;
-import ru.practicum.model.Event;
 
 @Mapper(componentModel = "spring")
 public interface CompilationMapper {
@@ -22,6 +20,5 @@ public interface CompilationMapper {
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
             nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
-  //  @Mapping(target = "category", ignore = true)
     void updateCompilationFromUpdateCompilationDto(NewCompilationDto compilationDto, @MappingTarget Compilation compilation);
 }

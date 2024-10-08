@@ -33,7 +33,6 @@ public interface EventMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
             nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
     @Mapping(target = "category", ignore = true)
-        // надо бы улучшить, может на вход давать еще категорию и прописать аннотацию Маппинг с учетом сущностей хз
     void updateEventFromUpdateEventDto(UpdateEventDto updateEventDto, @MappingTarget Event event);
 
     default Location buildLocation(Float lat, Float lon) {

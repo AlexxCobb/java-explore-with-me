@@ -28,7 +28,7 @@ public class CategoryService {
 
     @Transactional
     public CategoryDto updateCategory(Integer id, CategoryDto categoryDto) {
-        var catDto =findCategoryById(id);
+        var catDto = findCategoryById(id);
         if (!catDto.getName().equals(categoryDto.getName())) {
             var cat = categoryMapper.toCategory(categoryDto);
             return categoryMapper.toCategoryDto(repository.save(cat));

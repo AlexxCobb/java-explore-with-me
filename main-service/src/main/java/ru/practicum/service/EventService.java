@@ -1,11 +1,15 @@
 package ru.practicum.service;
 
 import com.querydsl.core.types.dsl.BooleanExpression;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.StatsClient;
 import ru.practicum.constants.Constants;
+import ru.practicum.dto.StatRequestDto;
+import ru.practicum.dto.StatResponseDto;
 import ru.practicum.dto.compilation.CompilationDtoResponse;
 import ru.practicum.dto.compilation.NewCompilationDto;
 import ru.practicum.dto.event.EventFullDto;
@@ -44,8 +48,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -62,6 +70,11 @@ public class EventService {
     private final CompilationMapper compilationMapper;
     private final UserService userService;
     private final CategoryService categoryService;
+    private final StatsClient statsClient;
+
+    /**
+     * методы PrivateEventController
+     */
 
     @Transactional
     public EventFullDto addEvent(Long userId, NewEventDto eventDto) {
@@ -166,6 +179,54 @@ public class EventService {
     }
 
     @Transactional
+    public RequestStatusUpdateResult requestManager(Long userId, Long eventId, RequestStatusUpdateDto requestStatusUpdateDto) {
+        if (!eventRepository.existsByIdAndInitiatorId(eventId, userId)) {
+            throw new BadRequestException("Пользователь с id = " + userId + " ,не создавал событие с id = " + eventId + ".");
+        }
+        userService.findUserById(userId);
+        var event = eventRepository.findById(eventId).orElseThrow(
+                () -> new NotFoundException("Событие с id = " + eventId + " не найдено.")
+        );
+        var requests = requestRepository.findAllById(requestStatusUpdateDto.getRequestIds());
+        if (requestStatusUpdateDto.getStatus().equals(Status.CONFIRMED)) {
+            for (Request request : requests) {
+                if (event.getParticipantLimit() != 0 && event.getParticipantLimit() <= event.getConfirmedRequests()) {
+                    throw new DataViolationException("У события достигнут лимит запросов на участие.");
+                }
+                request.setStatus(Status.CONFIRMED);
+                event.setConfirmedRequests(event.getConfirmedRequests() + 1);
+            }
+        } else if (requestStatusUpdateDto.getStatus().equals(Status.REJECTED)) {
+            for (Request request : requests) {
+                if (request.getStatus().equals(Status.CONFIRMED)) {
+                    throw new DataViolationException("Нельзя отменять уже одобренную заявку с id = " + request.getId());
+                }
+                request.setStatus(Status.REJECTED);
+            }
+        }
+        requestRepository.saveAll(requests);
+
+        var requestsResult = requestRepository.findByEventId(eventId);
+        var requestMap = requestsResult.stream().collect(Collectors.groupingBy(Request::getStatus));
+        List<RequestDto> rejectedRequests = new ArrayList<>();
+        if (requestMap.get(Status.REJECTED) != null) {
+            rejectedRequests = requestMap.get(Status.REJECTED).stream().map(requestMapper::toRequestDto).toList();
+        }
+        List<RequestDto> confirmedRequests = new ArrayList<>();
+        if (requestMap.get(Status.CONFIRMED) != null) {
+            confirmedRequests = requestMap.get(Status.CONFIRMED).stream().map(requestMapper::toRequestDto).toList();
+        }
+        RequestStatusUpdateResult result = new RequestStatusUpdateResult();
+        result.setConfirmedRequests(confirmedRequests);
+        result.setRejectedRequests(rejectedRequests);
+        return result;
+    }
+
+    /**
+     * методы PrivateRequestController
+     */
+
+    @Transactional
     public RequestDto addRequest(Long userId, Long eventId) {
         var user = userService.findUserById(userId);
         var event = eventRepository.findById(eventId).orElseThrow(
@@ -234,6 +295,10 @@ public class EventService {
         return !requests.isEmpty() ? requests.stream().map(requestMapper::toRequestDto).collect(Collectors.toList()) : Collections.emptyList();
     }
 
+    /**
+     * методы AdminEventController
+     */
+
     public List<EventFullDto> getAllEventsWithParam(EventParamAdmin eventParamAdmin) {
         LocalDateTime start = null;
         LocalDateTime end = null;
@@ -266,7 +331,7 @@ public class EventService {
         if (byDateTime != null) {
             events = eventRepository.findAll(byDateTime.and(byUsers).and(byStates).and(byCategories), page);
         }
-        if(byDateTime == null && byCategories==null && byUsers==null && byStates == null){
+        if (byDateTime == null && byCategories == null && byUsers == null && byStates == null) {
             events = eventRepository.findAll(page);
         }
         return events != null ? events.stream().map(eventMapper::toEventFullDto).collect(Collectors.toList()) : Collections.emptyList();
@@ -315,57 +380,17 @@ public class EventService {
         return eventMapper.toEventFullDto(eventRepository.save(event));
     }
 
-    @Transactional
-    public RequestStatusUpdateResult requestManager(Long userId, Long eventId, RequestStatusUpdateDto requestStatusUpdateDto) {
-        if (!eventRepository.existsByIdAndInitiatorId(eventId, userId)) {
-            throw new BadRequestException("Пользователь с id = " + userId + " ,не создавал событие с id = " + eventId + ".");
-        }
-        var user = userService.findUserById(userId);
-        var event = eventRepository.findById(eventId).orElseThrow(
-                () -> new NotFoundException("Событие с id = " + eventId + " не найдено.")
-        );
-        var requests = requestRepository.findAllById(requestStatusUpdateDto.getRequestIds());
-        if (requestStatusUpdateDto.getStatus().equals(Status.CONFIRMED)) {
-            for (Request request : requests) {
-                if (event.getParticipantLimit() != 0 && event.getParticipantLimit() <= event.getConfirmedRequests()) {
-                    throw new DataViolationException("У события достигнут лимит запросов на участие.");
-                }
-                request.setStatus(Status.CONFIRMED);
-                event.setConfirmedRequests(event.getConfirmedRequests() + 1);
-            }
-        } else if (requestStatusUpdateDto.getStatus().equals(Status.REJECTED)) {
-            for (Request request : requests) {
-                if (request.getStatus().equals(Status.CONFIRMED)) {
-                    throw new DataViolationException("Нельзя отменять уже одобренную заявку с id = " + request.getId());
-                }
-                request.setStatus(Status.REJECTED);
-            }
-        }
-        requestRepository.saveAll(requests);
+    /**
+     * методы PublicEventController
+     */
 
-        var requestsResult = requestRepository.findByEventId(eventId);
-        var requestMap = requestsResult.stream().collect(Collectors.groupingBy(Request::getStatus));
-        List<RequestDto> rejectedRequests = new ArrayList<>();
-        if (requestMap.get(Status.REJECTED) != null) {
-            rejectedRequests = requestMap.get(Status.REJECTED).stream().map(requestMapper::toRequestDto).toList();
-        }
-        List<RequestDto> confirmedRequests = new ArrayList<>();
-        if (requestMap.get(Status.CONFIRMED) != null) {
-            confirmedRequests = requestMap.get(Status.CONFIRMED).stream().map(requestMapper::toRequestDto).toList();
-        }
-        RequestStatusUpdateResult result = new RequestStatusUpdateResult();
-        result.setConfirmedRequests(confirmedRequests);
-        result.setRejectedRequests(rejectedRequests);
-        return result;
-    }
-
-    public List<EventShortDto> getEvents(EventParamPublic eventParamPublic) {
+    public List<EventShortDto> getEvents(EventParamPublic eventParamPublic, HttpServletRequest request) {
         LocalDateTime start = null;
         LocalDateTime end = null;
         BooleanExpression byText = null;
         BooleanExpression byCategories = null;
         BooleanExpression byPaid = null;
-        BooleanExpression byDateTime = null;
+        BooleanExpression byDateTime;
         BooleanExpression byStates = QEvent.event.state.in(State.PUBLISHED);
 
         if (eventParamPublic.getRangeStart() != null) {
@@ -394,9 +419,9 @@ public class EventService {
         }
         var page = PaginationServiceClass.pagination(eventParamPublic.getFrom(), eventParamPublic.getSize());
 
-        Page<Event> events = null;
+        List<Event> events = null;
         if (byDateTime != null) {
-            events = eventRepository.findAll(byDateTime.and(byText).and(byStates).and(byPaid).and(byCategories), page);
+            events = eventRepository.findAll(byDateTime.and(byText).and(byStates).and(byPaid).and(byCategories), page).getContent();
         }
         if (events != null) {
             if (eventParamPublic.getOnlyAvailable() != null && eventParamPublic.getOnlyAvailable()) {
@@ -415,22 +440,52 @@ public class EventService {
                     return events.stream().map(eventMapper::toEventShortDto).sorted(Comparator.comparing(EventShortDto::getViews)).toList();
                 }
             }
+            var startSearch = LocalDateTime.now().minusYears(20).withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+            var endSearch = LocalDateTime.now().withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+            var stats = statsClient.getStats(startSearch, endSearch, request.getRequestURI().lines().toList(), null);
+
+            Pattern p = Pattern.compile("\\d+");
+            Map<Long, Integer> eventIdsToViews = new HashMap<>();
+            for (StatResponseDto stat : stats) {
+                Matcher m = p.matcher(stat.getUri());
+                if (m.find()) {
+                    var key = Long.parseLong(m.group());
+                    eventIdsToViews.put(key, stat.getHits());
+                }
+            }
+            for (Event event : events) {
+                if (eventIdsToViews.get(event.getId()) != null) {
+                    event.setViews(eventIdsToViews.get(event.getId()));
+                }
+            }
+            statsClient.createHitStats(new StatRequestDto("ewm-main-service", request.getRequestURI(), request.getRemoteAddr(), endSearch));
             return events.stream().map(eventMapper::toEventShortDto).toList();
         }
         return Collections.emptyList();
-        //статистика
     }
 
-    public EventFullDto findEventById(Long eventId) {
+    public EventFullDto findEventById(Long eventId, HttpServletRequest request) {
         var event = eventRepository.findById(eventId).orElseThrow(
                 () -> new NotFoundException("Событие с id = " + eventId + " не найдено.")
         );
         if (!event.getState().equals(State.PUBLISHED)) {
             throw new NotFoundException("Событие с id = " + eventId + " еще не опубликовано.");
         }
+        var start = LocalDateTime.now().minusYears(20).withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        var end = LocalDateTime.now().withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        var stats = statsClient.getStats(start, end, request.getRequestURI().lines().toList(), true);
+        if (!stats.isEmpty()) {
+            event.setViews(stats.getFirst().getHits());
+        }
+        var time = LocalDateTime.now().withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+
+        statsClient.createHitStats(new StatRequestDto("ewm-main-service", request.getRequestURI(), request.getRemoteAddr(), time));
         return eventMapper.toEventFullDto(event);
-        //статистика не реализована
     }
+
+    /**
+     * методы AdminCompilationController
+     */
 
     @Transactional
     public CompilationDtoResponse addCompilation(NewCompilationDto compilationDto) {
@@ -447,7 +502,7 @@ public class EventService {
 
     @Transactional
     public void deleteCompilation(Long compId) {
-        var comp = compilationRepository.findById(compId).orElseThrow(
+        compilationRepository.findById(compId).orElseThrow(
                 () -> new NotFoundException("Компиляция с id = " + compId + "не найдена"));
         compilationRepository.deleteById(compId);
         compilationEventRepository.deleteAllByCompilation_Id(compId);
@@ -457,8 +512,10 @@ public class EventService {
     public CompilationDtoResponse updateCompilation(Long compId, NewCompilationDto compilationDto) {
         var comp = compilationRepository.findById(compId).orElseThrow(
                 () -> new NotFoundException("Компиляция с id = " + compId + "не найдена"));
-        if (compilationDto.getTitle() != null && compilationDto.getTitle().length() < 1 || compilationDto.getTitle() != null && compilationDto.getTitle().length() > 50) {
-            throw new BadRequestException("Длина title не соответствует параметрам (min = 1, max = 50)");
+        if (compilationDto.getTitle() != null) {
+            if (compilationDto.getTitle().isEmpty() || compilationDto.getTitle().length() > 50) {
+                throw new BadRequestException("Длина title не соответствует параметрам (min = 1, max = 50)");
+            }
         }
         compilationMapper.updateCompilationFromUpdateCompilationDto(compilationDto, comp);
         compilationRepository.save(comp);
@@ -472,6 +529,10 @@ public class EventService {
         result.setEvents(Collections.emptyList());
         return result;
     }
+
+    /**
+     * методы PublicCompilationController
+     */
 
     public CompilationDtoResponse findCompilationById(Long compId) {
         var comp = compilationRepository.findById(compId).orElseThrow(

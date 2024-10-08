@@ -1,8 +1,8 @@
 package ru.practicum.model;
 
 import org.springframework.stereotype.Component;
-import ru.practicum.dto.StatRequestDto;
 import ru.practicum.constants.Constants;
+import ru.practicum.dto.StatRequestDto;
 
 import java.time.LocalDateTime;
 

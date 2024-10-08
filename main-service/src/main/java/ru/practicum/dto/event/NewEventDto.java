@@ -36,10 +36,10 @@ public class NewEventDto {
 
     @Future
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = Constants.DATE_PATTERN)
-    private LocalDateTime eventDate; //смотри, может здесь быть строка на входе!!! и понеслась исправлять и парсить
+    private LocalDateTime eventDate;
 
     @NotNull
-    private Location location; //хз вообще, смапит их или нет
+    private Location location;
 
     private Boolean paid;
 

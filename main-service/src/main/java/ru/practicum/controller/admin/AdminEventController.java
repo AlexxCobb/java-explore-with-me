@@ -25,13 +25,13 @@ public class AdminEventController {
     private final EventService eventService;
 
     @GetMapping
-    public List<EventFullDto> getAllEventsWithParam (@Valid EventParamAdmin eventParamAdmin) {
+    public List<EventFullDto> getAllEventsWithParam(@Valid EventParamAdmin eventParamAdmin) {
         log.info("Поступил GET-запрос на получение events c параметрами: {}", eventParamAdmin);
         return eventService.getAllEventsWithParam(eventParamAdmin);
     }
 
     @PatchMapping("/{eventId}")
-    public EventFullDto eventManager (@PathVariable Long eventId, @RequestBody UpdateEventDto updateEventDto) {
+    public EventFullDto eventManager(@PathVariable Long eventId, @RequestBody UpdateEventDto updateEventDto) {
         log.info("Поступил PATCH-запрос на редактирование данных event c id = {}", eventId);
         return eventService.eventManager(eventId, updateEventDto);
     }

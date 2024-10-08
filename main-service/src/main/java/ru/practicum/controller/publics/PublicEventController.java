@@ -1,5 +1,6 @@
 package ru.practicum.controller.publics;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,14 +24,14 @@ public class PublicEventController {
     private final EventService eventService;
 
     @GetMapping
-    public List<EventShortDto> getEvents(@Valid EventParamPublic eventParamPublic) {
+    public List<EventShortDto> getEvents(@Valid EventParamPublic eventParamPublic, HttpServletRequest request) {
         log.info("Поступил GET-запрос на получение events c параметрами: {}", eventParamPublic);
-        return eventService.getEvents(eventParamPublic);
+        return eventService.getEvents(eventParamPublic, request);
     }
 
     @GetMapping("/{eventId}")
-    public EventFullDto findEventById(@PathVariable Long eventId) {
+    public EventFullDto findEventById(@PathVariable Long eventId, HttpServletRequest request) {
         log.info("Поступил GET-запрос на получение подробной информации event c id: {}", eventId);
-        return eventService.findEventById(eventId);
+        return eventService.findEventById(eventId, request);
     }
 }

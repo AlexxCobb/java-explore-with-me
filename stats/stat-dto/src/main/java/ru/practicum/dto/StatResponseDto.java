@@ -14,4 +14,3 @@ public class StatResponseDto {
     private String uri;
     private Integer hits;
 }
-

@@ -17,8 +17,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.geo.Point;
 import ru.practicum.enums.State;
 
 import java.time.LocalDateTime;
