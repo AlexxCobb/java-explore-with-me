@@ -2,14 +2,14 @@ package ru.practicum.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import ru.practicum.DAO.StatisticRepository;
-import ru.practicum.DTO.StatRequestDto;
-import ru.practicum.DTO.StatResponseDto;
 import ru.practicum.constants.Constants;
+import ru.practicum.dto.StatRequestDto;
+import ru.practicum.dto.StatResponseDto;
 import ru.practicum.exception.BadRequestException;
 import ru.practicum.model.StatShort;
 import ru.practicum.model.StatShortMapper;
 import ru.practicum.model.StatisticMapper;
+import ru.practicum.repository.StatisticRepository;
 
 import java.time.LocalDateTime;
 import java.util.Collections;

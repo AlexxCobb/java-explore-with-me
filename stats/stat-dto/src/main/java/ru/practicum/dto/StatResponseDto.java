@@ -1,4 +1,4 @@
-package ru.practicum.DTO;
+package ru.practicum.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,4 +14,3 @@ public class StatResponseDto {
     private String uri;
     private Integer hits;
 }
-

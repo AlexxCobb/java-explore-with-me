@@ -3,6 +3,7 @@ package ru.practicum.exception;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -18,9 +19,9 @@ public class ErrorHandler {
         return new ErrorResponse(e.getMessage());
     }
 
-    @ExceptionHandler
+    @ExceptionHandler(value = {BadRequestException.class, MissingServletRequestParameterException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public final ErrorResponse handleNotFoundException(final BadRequestException e) {
+    public final ErrorResponse handleNotFoundException(final RuntimeException e) {
         log.error("Получен статус 404 Not found {}", e.getMessage(), e);
         return new ErrorResponse(e.getMessage());
     }

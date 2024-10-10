@@ -1,7 +1,7 @@
 package ru.practicum.model;
 
 import org.springframework.stereotype.Component;
-import ru.practicum.DTO.StatResponseDto;
+import ru.practicum.dto.StatResponseDto;
 
 @Component
 public class StatShortMapper {
