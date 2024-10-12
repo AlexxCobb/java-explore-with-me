@@ -3,7 +3,6 @@ package ru.practicum.service;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.StatsClient;
@@ -51,6 +50,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -81,32 +81,35 @@ public class EventService {
         var user = userService.findUserById(userId);
         if (eventDto.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
             throw new DataViolationException("Дата и время, на которые намечено событие, не может быть раньше, чем через два часа от текущего момента.");
-        } else {
-            var event = eventMapper.toEventFromNewEventDto(eventDto);
-            var category = categoryMapper.toCategory(categoryService.findCategoryById(eventDto.getCategory()));
-            event.setCategory(category);
-            event.setInitiator(user);
-            event.setState(State.PENDING);
-            event.setLat(eventDto.getLocation().getLat());
-            event.setLon(eventDto.getLocation().getLon());
-
-            if (eventDto.getRequestModeration() == null) {
-                event.setRequestModeration(true);
-            }
-            if (eventDto.getParticipantLimit() == null) {
-                event.setParticipantLimit(0);
-            }
-            if (eventDto.getPaid() == null) {
-                event.setPaid(false);
-            }
-            event.setConfirmedRequests(0);
-            event.setViews(0);
-            return eventMapper.toEventFullDto(eventRepository.save(event));
         }
+        var event = eventMapper.toEventFromNewEventDto(eventDto);
+        var category = categoryMapper.toCategory(categoryService.findCategoryById(eventDto.getCategory()));
+        event.setCategory(category);
+        event.setInitiator(user);
+        event.setState(State.PENDING);
+        event.setLat(eventDto.getLocation().getLat());
+        event.setLon(eventDto.getLocation().getLon());
+
+        if (eventDto.getRequestModeration() == null) {
+            event.setRequestModeration(true);
+        }
+        if (eventDto.getParticipantLimit() == null) {
+            event.setParticipantLimit(0);
+        }
+        if (eventDto.getPaid() == null) {
+            event.setPaid(false);
+        }
+        event.setConfirmedRequests(0);
+        event.setViews(0);
+        return eventMapper.toEventFullDto(eventRepository.save(event));
     }
 
     @Transactional
     public EventFullDto updateEvent(Long userId, Long eventId, UpdateEventDto eventDto) {
+        var event = eventMapper.toEventFromFullEventDto(findUserEventById(userId, eventId));
+        if (event.getState().equals(State.PUBLISHED)) {
+            throw new DataViolationException("Нельзя менять события со статусом - " + event.getState());
+        }
         if (eventDto.getEventDate() != null) {
             if (eventDto.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
                 throw new BadRequestException("Дата и время, на которые намечено событие, не может быть раньше, чем через два часа от текущего момента.");
@@ -131,10 +134,6 @@ public class EventService {
             }
         }
 
-        var event = eventMapper.toEventFromFullEventDto(findUserEventById(userId, eventId));
-        if (event.getState().equals(State.PUBLISHED)) {
-            throw new DataViolationException("Нельзя менять события со статусом - " + event.getState());
-        }
 
         Category category;
         if (eventDto.getCategory() != null) {
@@ -169,7 +168,7 @@ public class EventService {
         userService.findUserById(userId);
         var page = PaginationServiceClass.pagination(from, size);
         var events = eventRepository.findByInitiatorIdOrderByCreatedOnDesc(userId, page);
-        return !events.isEmpty() ? events.stream().map(eventMapper::toEventShortDto).collect(Collectors.toList()) : Collections.emptyList();
+        return events.stream().map(eventMapper::toEventShortDto).collect(Collectors.toList());
     }
 
     public List<RequestDto> findEventRequestsById(Long userId, Long eventId) {
@@ -281,18 +280,14 @@ public class EventService {
         var request = requestRepository.findById(requestId).orElseThrow(
                 () -> new NotFoundException("Запрос с id = " + requestId + " не найден.")
         );
-        if (request.getRequester().getId().equals(userId) && !request.getStatus().equals(Status.REJECTED)) {
-            request.setStatus(Status.CANCELED);
-            return requestMapper.toRequestDto(requestRepository.save(request));
-        } else {
-            throw new DataViolationException("Такого не было в ТЗ, сам написал исключение, наблюдаем))"); // проверка ннннадо?
-        }
+        request.setStatus(Status.CANCELED);
+        return requestMapper.toRequestDto(requestRepository.save(request));
     }
 
     public List<RequestDto> getAllUserRequests(Long userId) {
         userService.findUserById(userId);
         var requests = requestRepository.findByRequesterId(userId);
-        return !requests.isEmpty() ? requests.stream().map(requestMapper::toRequestDto).collect(Collectors.toList()) : Collections.emptyList();
+        return requests.stream().map(requestMapper::toRequestDto).collect(Collectors.toList());
     }
 
     /**
@@ -307,19 +302,19 @@ public class EventService {
         BooleanExpression byCategories = null;
         BooleanExpression byDateTime = null;
 
-        if (eventParamAdmin.getRangeStart() != null) {
+        if (Objects.nonNull(eventParamAdmin.getRangeStart())) {
             start = LocalDateTime.parse(eventParamAdmin.getRangeStart(), DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
         }
-        if (eventParamAdmin.getRangeEnd() != null) {
+        if (Objects.nonNull(eventParamAdmin.getRangeEnd())) {
             end = LocalDateTime.parse(eventParamAdmin.getRangeEnd(), DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
         }
-        if (eventParamAdmin.getUsers() != null && !eventParamAdmin.getUsers().isEmpty()) {
+        if (Objects.nonNull(eventParamAdmin.getUsers())) {
             byUsers = QEvent.event.initiator.id.in(eventParamAdmin.getUsers());
         }
-        if (eventParamAdmin.getStates() != null && !eventParamAdmin.getStates().isEmpty()) {
+        if (Objects.nonNull(eventParamAdmin.getStates())) {
             byStates = QEvent.event.state.in(eventParamAdmin.getStates());
         }
-        if (eventParamAdmin.getCategories() != null && !eventParamAdmin.getCategories().isEmpty()) {
+        if (Objects.nonNull(eventParamAdmin.getCategories())) {
             byCategories = QEvent.event.category.id.in(eventParamAdmin.getCategories());
         }
         if (start != null && end != null) {
@@ -327,12 +322,12 @@ public class EventService {
         }
         var page = PaginationServiceClass.pagination(eventParamAdmin.getFrom(), eventParamAdmin.getSize());
 
-        Page<Event> events = null;
+        List<Event> events = null;
         if (byDateTime != null) {
-            events = eventRepository.findAll(byDateTime.and(byUsers).and(byStates).and(byCategories), page);
+            events = eventRepository.findAll(byDateTime.and(byUsers).and(byStates).and(byCategories), page).getContent();
         }
         if (byDateTime == null && byCategories == null && byUsers == null && byStates == null) {
-            events = eventRepository.findAll(page);
+            events = eventRepository.findAll(page).getContent();
         }
         return events != null ? events.stream().map(eventMapper::toEventFullDto).collect(Collectors.toList()) : Collections.emptyList();
     }
@@ -345,7 +340,7 @@ public class EventService {
         if (eventDto.getEventDate() != null && eventDto.getEventDate().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Дата начала - " + eventDto.getEventDate() +
                     " изменяемого события c id = " + eventId +
-                    " не должна быть в прошлом"); //eventDto.getEventDate().isBefore(event.getEventDate()) &&
+                    " не должна быть в прошлом");
         }
         if (eventDto.getAnnotation() != null) {
             if (eventDto.getAnnotation().length() < 20 || eventDto.getAnnotation().length() > 2000) {
@@ -402,14 +397,14 @@ public class EventService {
                 throw new BadRequestException("Дата окончания не может быть раньше текущей даты");
             }
         }
-        if (eventParamPublic.getText() != null && !eventParamPublic.getText().isBlank()) {
+        if (Objects.nonNull(eventParamPublic.getText())) {
             byText = QEvent.event.annotation.toLowerCase().likeIgnoreCase("%" + eventParamPublic.getText().toLowerCase() + "%")
                     .or(QEvent.event.description.toLowerCase().likeIgnoreCase("%" + eventParamPublic.getText().toLowerCase() + "%"));
         }
         if (eventParamPublic.getPaid() != null) {
             byPaid = QEvent.event.paid.in(eventParamPublic.getPaid());
         }
-        if (eventParamPublic.getCategories() != null && !eventParamPublic.getCategories().isEmpty()) {
+        if (Objects.nonNull(eventParamPublic.getCategories())) {
             byCategories = QEvent.event.category.id.in(eventParamPublic.getCategories());
         }
         if (start != null && end != null) {

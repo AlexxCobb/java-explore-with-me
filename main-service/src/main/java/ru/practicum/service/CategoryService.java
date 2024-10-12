@@ -9,7 +9,6 @@ import ru.practicum.exception.NotFoundException;
 import ru.practicum.repository.CategoryRepository;
 import ru.practicum.utils.PaginationServiceClass;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -48,12 +47,12 @@ public class CategoryService {
     public List<CategoryDto> getAllCategories(Integer from, Integer size) {
         var page = PaginationServiceClass.pagination(from, size);
         var categories = repository.findAll(page);
-        return !categories.isEmpty() ? categories.stream().map(categoryMapper::toCategoryDto).collect(Collectors.toList()) : Collections.emptyList();
+        return categories.stream().map(categoryMapper::toCategoryDto).collect(Collectors.toList());
     }
 
     public CategoryDto findCategoryById(Integer id) {
-        var cat = repository.findById(id).orElseThrow(
-                () -> new NotFoundException("Категория с id " + id + " не найдена."));
+        var cat = repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Категория с id " + id + " не найдена."));
         return categoryMapper.toCategoryDto(cat);
     }
 }
