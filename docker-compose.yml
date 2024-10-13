@@ -24,6 +24,7 @@ services:
 
   ewm-service:
     build: main-service
+
     container_name: main-server-container
     ports:
       - "8080:8080"

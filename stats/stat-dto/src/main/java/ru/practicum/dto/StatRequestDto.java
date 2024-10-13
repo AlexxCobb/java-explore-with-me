@@ -1,4 +1,4 @@
-package ru.practicum.DTO;
+package ru.practicum.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -6,7 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import ru.practicum.DTO.validator.ValidDate;
+import ru.practicum.dto.validator.ValidDate;
 
 @Getter
 @Setter
