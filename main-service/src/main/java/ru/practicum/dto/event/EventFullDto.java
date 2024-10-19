@@ -1,6 +1,7 @@
 package ru.practicum.dto.event;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -8,11 +9,13 @@ import lombok.Setter;
 import lombok.ToString;
 import ru.practicum.constants.Constants;
 import ru.practicum.dto.category.CategoryDto;
+import ru.practicum.dto.comment.CommentDto;
 import ru.practicum.dto.user.UserShortDto;
 import ru.practicum.enums.State;
 import ru.practicum.model.Location;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -39,4 +42,6 @@ public class EventFullDto {
     private State state;
     private String title;
     private Integer views;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<CommentDto> comments;
 }

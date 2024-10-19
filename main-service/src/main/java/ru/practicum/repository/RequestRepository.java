@@ -10,6 +10,8 @@ import java.util.List;
 public interface RequestRepository extends JpaRepository<Request, Long> {
     boolean existsByEventIdAndRequesterId(Long eventId, Long requesterId);
 
+    Request findByEventIdAndRequesterId(Long eventId, Long requesterId);
+
     List<Request> findByRequesterId(Long requesterId);
 
     List<Request> findByEventId(Long eventId);
