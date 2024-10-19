@@ -9,6 +9,7 @@ import ru.practicum.StatsClient;
 import ru.practicum.constants.Constants;
 import ru.practicum.dto.StatRequestDto;
 import ru.practicum.dto.StatResponseDto;
+import ru.practicum.dto.comment.CommentDto;
 import ru.practicum.dto.compilation.CompilationDtoResponse;
 import ru.practicum.dto.compilation.NewCompilationDto;
 import ru.practicum.dto.event.EventFullDto;
@@ -18,6 +19,7 @@ import ru.practicum.dto.event.EventShortDto;
 import ru.practicum.dto.event.NewEventDto;
 import ru.practicum.dto.event.UpdateEventDto;
 import ru.practicum.dto.mapper.CategoryMapper;
+import ru.practicum.dto.mapper.CommentMapper;
 import ru.practicum.dto.mapper.CompilationMapper;
 import ru.practicum.dto.mapper.EventMapper;
 import ru.practicum.dto.mapper.RequestMapper;
@@ -31,14 +33,18 @@ import ru.practicum.exception.BadRequestException;
 import ru.practicum.exception.DataViolationException;
 import ru.practicum.exception.NotFoundException;
 import ru.practicum.model.Category;
+import ru.practicum.model.Comment;
 import ru.practicum.model.Compilation;
 import ru.practicum.model.CompilationEvent;
 import ru.practicum.model.Event;
+import ru.practicum.model.Like;
 import ru.practicum.model.QEvent;
 import ru.practicum.model.Request;
+import ru.practicum.repository.CommentRepository;
 import ru.practicum.repository.CompilationEventRepository;
 import ru.practicum.repository.CompilationRepository;
 import ru.practicum.repository.EventRepository;
+import ru.practicum.repository.LikeRepository;
 import ru.practicum.repository.RequestRepository;
 import ru.practicum.utils.PaginationServiceClass;
 
@@ -64,13 +70,16 @@ public class EventService {
     private final RequestRepository requestRepository;
     private final CompilationRepository compilationRepository;
     private final CompilationEventRepository compilationEventRepository;
+    private final CommentRepository commentRepository;
     private final EventMapper eventMapper;
     private final RequestMapper requestMapper;
     private final CategoryMapper categoryMapper;
     private final CompilationMapper compilationMapper;
+    private final CommentMapper commentMapper;
     private final UserService userService;
     private final CategoryService categoryService;
     private final StatsClient statsClient;
+    private final LikeRepository likeRepository;
 
     /**
      * методы PrivateEventController
@@ -297,10 +306,8 @@ public class EventService {
     public List<EventFullDto> getAllEventsWithParam(EventParamAdmin eventParamAdmin) {
         LocalDateTime start = null;
         LocalDateTime end = null;
-        BooleanExpression byUsers = null;
-        BooleanExpression byStates = null;
-        BooleanExpression byCategories = null;
         BooleanExpression byDateTime = null;
+        List<BooleanExpression> expressions = new ArrayList<>();
 
         if (Objects.nonNull(eventParamAdmin.getRangeStart())) {
             start = LocalDateTime.parse(eventParamAdmin.getRangeStart(), DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
@@ -309,27 +316,34 @@ public class EventService {
             end = LocalDateTime.parse(eventParamAdmin.getRangeEnd(), DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
         }
         if (Objects.nonNull(eventParamAdmin.getUsers())) {
-            byUsers = QEvent.event.initiator.id.in(eventParamAdmin.getUsers());
+            var byUsers = QEvent.event.initiator.id.in(eventParamAdmin.getUsers());
+            expressions.add(byUsers);
         }
         if (Objects.nonNull(eventParamAdmin.getStates())) {
-            byStates = QEvent.event.state.in(eventParamAdmin.getStates());
+            var byStates = QEvent.event.state.in(eventParamAdmin.getStates());
+            expressions.add(byStates);
         }
         if (Objects.nonNull(eventParamAdmin.getCategories())) {
-            byCategories = QEvent.event.category.id.in(eventParamAdmin.getCategories());
+            var byCategories = QEvent.event.category.id.in(eventParamAdmin.getCategories());
+            expressions.add(byCategories);
         }
         if (start != null && end != null) {
             byDateTime = QEvent.event.eventDate.between(start, end);
+            expressions.add(byDateTime);
         }
         var page = PaginationServiceClass.pagination(eventParamAdmin.getFrom(), eventParamAdmin.getSize());
 
-        List<Event> events = null;
-        if (byDateTime != null) {
-            events = eventRepository.findAll(byDateTime.and(byUsers).and(byStates).and(byCategories), page).getContent();
+        List<Event> events = new ArrayList<>();
+        if (!expressions.isEmpty()) {
+            var paramSearch = expressions.stream().reduce(BooleanExpression::and).get();
+            events = eventRepository.findAll(paramSearch, page).getContent();
         }
-        if (byDateTime == null && byCategories == null && byUsers == null && byStates == null) {
+
+
+        if (byDateTime == null && Objects.isNull(eventParamAdmin.getCategories()) && Objects.isNull(eventParamAdmin.getUsers()) && Objects.isNull(eventParamAdmin.getStates())) {
             events = eventRepository.findAll(page).getContent();
         }
-        return events != null ? events.stream().map(eventMapper::toEventFullDto).collect(Collectors.toList()) : Collections.emptyList();
+        return events.stream().map(eventMapper::toEventFullDto).collect(Collectors.toList());
     }
 
     @Transactional
@@ -382,11 +396,10 @@ public class EventService {
     public List<EventShortDto> getEvents(EventParamPublic eventParamPublic, HttpServletRequest request) {
         LocalDateTime start = null;
         LocalDateTime end = null;
-        BooleanExpression byText = null;
-        BooleanExpression byCategories = null;
-        BooleanExpression byPaid = null;
-        BooleanExpression byDateTime;
+        List<BooleanExpression> expressions = new ArrayList<>();
+
         BooleanExpression byStates = QEvent.event.state.in(State.PUBLISHED);
+        expressions.add(byStates);
 
         if (eventParamPublic.getRangeStart() != null) {
             start = LocalDateTime.parse(eventParamPublic.getRangeStart(), DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
@@ -398,65 +411,68 @@ public class EventService {
             }
         }
         if (Objects.nonNull(eventParamPublic.getText())) {
-            byText = QEvent.event.annotation.toLowerCase().likeIgnoreCase("%" + eventParamPublic.getText().toLowerCase() + "%")
+            var byText = QEvent.event.annotation.toLowerCase().likeIgnoreCase("%" + eventParamPublic.getText().toLowerCase() + "%")
                     .or(QEvent.event.description.toLowerCase().likeIgnoreCase("%" + eventParamPublic.getText().toLowerCase() + "%"));
+            expressions.add(byText);
         }
         if (eventParamPublic.getPaid() != null) {
-            byPaid = QEvent.event.paid.in(eventParamPublic.getPaid());
+            var byPaid = QEvent.event.paid.in(eventParamPublic.getPaid());
+            expressions.add(byPaid);
         }
         if (Objects.nonNull(eventParamPublic.getCategories())) {
-            byCategories = QEvent.event.category.id.in(eventParamPublic.getCategories());
+            var byCategories = QEvent.event.category.id.in(eventParamPublic.getCategories());
+            expressions.add(byCategories);
         }
         if (start != null && end != null) {
-            byDateTime = QEvent.event.eventDate.between(start, end);
+            var byDateTime = QEvent.event.eventDate.between(start, end);
+            expressions.add(byDateTime);
         } else {
-            byDateTime = QEvent.event.eventDate.after(LocalDateTime.now());
+            var byDateTime = QEvent.event.eventDate.after(LocalDateTime.now());
+            expressions.add(byDateTime);
         }
         var page = PaginationServiceClass.pagination(eventParamPublic.getFrom(), eventParamPublic.getSize());
 
-        List<Event> events = null;
-        if (byDateTime != null) {
-            events = eventRepository.findAll(byDateTime.and(byText).and(byStates).and(byPaid).and(byCategories), page).getContent();
-        }
-        if (events != null) {
-            if (eventParamPublic.getOnlyAvailable() != null && eventParamPublic.getOnlyAvailable()) {
-                var availableEvents = events.stream().filter(event -> event.getParticipantLimit() < event.getConfirmedRequests()).map(eventMapper::toEventShortDto).toList();
-                if (eventParamPublic.getSort().equals("EVENT_DATE")) {
-                    return availableEvents.stream().sorted(Comparator.comparing(EventShortDto::getEventDate)).toList();
-                }
-                if (eventParamPublic.getSort().equals("VIEWS")) {
-                    return availableEvents.stream().sorted(Comparator.comparing(EventShortDto::getViews)).toList();
-                }
-            } else {
-                if (eventParamPublic.getSort() != null && eventParamPublic.getSort().equals("EVENT_DATE")) {
-                    return events.stream().map(eventMapper::toEventShortDto).sorted(Comparator.comparing(EventShortDto::getEventDate)).toList();
-                }
-                if (eventParamPublic.getSort() != null && eventParamPublic.getSort().equals("VIEWS")) {
-                    return events.stream().map(eventMapper::toEventShortDto).sorted(Comparator.comparing(EventShortDto::getViews)).toList();
-                }
-            }
-            var startSearch = LocalDateTime.now().minusYears(20).withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
-            var endSearch = LocalDateTime.now().withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
-            var stats = statsClient.getStats(startSearch, endSearch, request.getRequestURI().lines().toList(), null);
+        List<Event> events;
+        var paramSearch = expressions.stream().reduce(BooleanExpression::and).get();
 
-            Pattern p = Pattern.compile("\\d+");
-            Map<Long, Integer> eventIdsToViews = new HashMap<>();
-            for (StatResponseDto stat : stats) {
-                Matcher m = p.matcher(stat.getUri());
-                if (m.find()) {
-                    var key = Long.parseLong(m.group());
-                    eventIdsToViews.put(key, stat.getHits());
-                }
+        events = eventRepository.findAll(paramSearch, page).getContent();
+
+        if (eventParamPublic.getOnlyAvailable() != null && eventParamPublic.getOnlyAvailable()) {
+            var availableEvents = events.stream().filter(event -> event.getParticipantLimit() < event.getConfirmedRequests()).map(eventMapper::toEventShortDto).toList();
+            if (eventParamPublic.getSort().equals("EVENT_DATE")) {
+                return availableEvents.stream().sorted(Comparator.comparing(EventShortDto::getEventDate)).toList();
             }
-            for (Event event : events) {
-                if (eventIdsToViews.get(event.getId()) != null) {
-                    event.setViews(eventIdsToViews.get(event.getId()));
-                }
+            if (eventParamPublic.getSort().equals("VIEWS")) {
+                return availableEvents.stream().sorted(Comparator.comparing(EventShortDto::getViews)).toList();
             }
-            statsClient.createHitStats(new StatRequestDto("ewm-main-service", request.getRequestURI(), request.getRemoteAddr(), endSearch));
-            return events.stream().map(eventMapper::toEventShortDto).toList();
+        } else {
+            if (eventParamPublic.getSort() != null && eventParamPublic.getSort().equals("EVENT_DATE")) {
+                return events.stream().map(eventMapper::toEventShortDto).sorted(Comparator.comparing(EventShortDto::getEventDate)).toList();
+            }
+            if (eventParamPublic.getSort() != null && eventParamPublic.getSort().equals("VIEWS")) {
+                return events.stream().map(eventMapper::toEventShortDto).sorted(Comparator.comparing(EventShortDto::getViews)).toList();
+            }
         }
-        return Collections.emptyList();
+        var startSearch = LocalDateTime.now().minusYears(20).withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        var endSearch = LocalDateTime.now().withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
+        var stats = statsClient.getStats(startSearch, endSearch, request.getRequestURI().lines().toList(), null);
+
+        Pattern p = Pattern.compile("\\d+");
+        Map<Long, Integer> eventIdsToViews = new HashMap<>();
+        for (StatResponseDto stat : stats) {
+            Matcher m = p.matcher(stat.getUri());
+            if (m.find()) {
+                var key = Long.parseLong(m.group());
+                eventIdsToViews.put(key, stat.getHits());
+            }
+        }
+        for (Event event : events) {
+            if (eventIdsToViews.get(event.getId()) != null) {
+                event.setViews(eventIdsToViews.get(event.getId()));
+            }
+        }
+        statsClient.createHitStats(new StatRequestDto("ewm-main-service", request.getRequestURI(), request.getRemoteAddr(), endSearch));
+        return events.stream().map(eventMapper::toEventShortDto).toList();
     }
 
     public EventFullDto findEventById(Long eventId, HttpServletRequest request) {
@@ -475,7 +491,12 @@ public class EventService {
         var time = LocalDateTime.now().withNano(0).format(DateTimeFormatter.ofPattern(Constants.DATE_PATTERN));
 
         statsClient.createHitStats(new StatRequestDto("ewm-main-service", request.getRequestURI(), request.getRemoteAddr(), time));
-        return eventMapper.toEventFullDto(event);
+        var eventDto = eventMapper.toEventFullDto(event);
+        var comments = commentRepository.findByEventId(eventId).stream().map(commentMapper::toCommentDto).toList();
+        if (!comments.isEmpty()) {
+            eventDto.setComments(comments);
+        }
+        return eventDto;
     }
 
     /**
@@ -560,6 +581,152 @@ public class EventService {
             result.add(compilationDtoResponse);
         }
         return result;
+    }
+
+    /**
+     * методы PrivateCommentController
+     */
+
+    @Transactional
+    public CommentDto addComment(Long userId, Long eventId, String text) {
+        var user = userService.findUserById(userId);
+        var event = eventRepository.findById(eventId).orElseThrow(
+                () -> new NotFoundException("Событие с id = " + eventId + " не найдено.")
+        );
+        if (commentRepository.existsByEventIdAndAuthorId(eventId, userId)) {
+            throw new DataViolationException("Данный пользователь с id = " + userId + " уже оставлял комментарий на событие с id = " + eventId);
+        }
+        if (event.getInitiator().getId().equals(userId)) {
+            throw new DataViolationException("Инициатор события с id = " + userId + " не может добавить комментарий на своё событие c id = " + eventId);
+        }
+        if (!event.getState().equals(State.PUBLISHED)) {
+            throw new DataViolationException("Нельзя оставить комментарий о неопубликованном событии.");
+        }
+        var comment = new Comment();
+        comment.setAuthor(user);
+        comment.setEvent(event);
+        comment.setText(text);
+        comment.setStatus(State.PENDING);
+
+        return commentMapper.toCommentDto(commentRepository.save(comment));
+    }
+
+    @Transactional
+    public CommentDto updateComment(Long userId, Long commentId, String text) {
+        userService.findUserById(userId);
+        var comment = findCommentById(commentId);
+        if (!comment.getAuthor().getId().equals(userId)) {
+            throw new BadRequestException("Данный пользователь с id = "
+                    + userId + " не может редактировать чужой комментарий с id = " + commentId);
+        }
+        if (comment.getStatus().equals(State.REJECTED)) {
+            throw new DataViolationException("Нельзя изменять отклоненные комментарии");
+        }
+        comment.setText(text);
+        comment.setStatus(State.PENDING);
+        comment.setCreated(LocalDateTime.now());
+        return commentMapper.toCommentDto(commentRepository.save(comment));
+    }
+
+    @Transactional
+    public void deleteComment(Long userId, Long commentId) {
+        userService.findUserById(userId);
+        var comment = findCommentById(commentId);
+        if (!comment.getAuthor().getId().equals(userId)) {
+            throw new BadRequestException("Данный пользователь с id = "
+                    + userId + " не может удалять чужой комментарий с id = " + commentId);
+        }
+        if (LocalDateTime.now().isAfter(comment.getCreated().plusHours(24))) {
+            throw new DataViolationException("Удалить комментарий можно в течение суток");
+        }
+        commentRepository.deleteById(commentId);
+    }
+
+    public List<CommentDto> getAllUserComments(Long userId) {
+        userService.findUserById(userId);
+        var comments = commentRepository.findAllByAuthorId(userId);
+        return comments.stream().map(commentMapper::toCommentDto).toList();
+    }
+
+    public List<CommentDto> getAllCommentsByUserEventId(Long userId, Long eventId) {
+        userService.findUserById(userId);
+        var event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new NotFoundException("Событие с id = " + eventId + " не найдено.")
+                );
+        if (!event.getInitiator().getId().equals(userId)) {
+            throw new BadRequestException("Пользователь с id = " + userId + " не является создателем event c id = " + eventId + " и не может просмотреть все комментарии по событию.");
+        }
+        var comments = commentRepository.findAllByEventInitiatorIdAndEventIdAndStatus(userId, eventId, State.PUBLISHED);
+        return comments.stream().map(commentMapper::toCommentDto).toList();
+    }
+
+    public Comment findCommentById(Long commentId) {
+        return commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("Комментарий с id = " + commentId + " не найдено.")
+                );
+    }
+
+    @Transactional
+    public CommentDto manageComment(Long commentId) {
+        var comment = findCommentById(commentId);
+        var eventId = comment.getEvent().getId();
+        var authorId = comment.getAuthor().getId();
+        if (comment.getEvent().getRequestModeration().equals(true)) {
+            var request = requestRepository.findByEventIdAndRequesterId(eventId, authorId);
+            if (!request.getStatus().equals(Status.CONFIRMED)) {
+                comment.setStatus(State.REJECTED);
+                commentMapper.toCommentDto(commentRepository.save(comment));
+                throw new BadRequestException("Нельзя оставить комментарий на не посещенное событие");
+            }
+            if (request.getStatus().equals(Status.CONFIRMED) && comment.getStatus().equals(State.PENDING)) {
+                comment.setStatus(State.PUBLISHED);
+                return commentMapper.toCommentDto(commentRepository.save(comment));
+            }
+        }
+        if (comment.getStatus().equals(State.PENDING)) {
+            comment.setStatus(State.PUBLISHED);
+        }
+        return commentMapper.toCommentDto(commentRepository.save(comment));
+    }
+
+    @Transactional
+    public CommentDto addLike(Long userId, Long commentId) {
+        var user = userService.findUserById(userId);
+        var comment = findCommentById(commentId);
+        if (likeRepository.existsByUserIdAndCommentId(userId, commentId)) {
+            throw new DataViolationException("Пользователь с id = " + userId + " уже ставил like/dislike комментарию с id = " + commentId);
+        }
+        if (!comment.getStatus().equals(State.PUBLISHED)) {
+            throw new DataViolationException("Нельзя ставить лайк неопубликованному комментарию");
+        }
+        likeRepository.save(new Like(null, user, comment, true));
+        if (comment.getLikes() != null) {
+            comment.setLikes(comment.getLikes() + 1);
+        } else {
+            comment.setLikes(1);
+        }
+        var createdComment = commentRepository.save(comment);
+        return commentMapper.toCommentDto(createdComment);
+    }
+
+    @Transactional
+    public CommentDto addDislike(Long userId, Long commentId) {
+        var user = userService.findUserById(userId);
+        var comment = findCommentById(commentId);
+        if (likeRepository.existsByUserIdAndCommentId(userId, commentId)) {
+            throw new DataViolationException("Пользователь с id = " + userId + " уже ставил like/dislike комментарию с id = " + commentId);
+        }
+        if (!comment.getStatus().equals(State.PUBLISHED)) {
+            throw new DataViolationException("Нельзя ставить лайк неопубликованному комментарию");
+        }
+        likeRepository.save(new Like(null, user, comment, false));
+        if (comment.getDislikes() != null) {
+            comment.setDislikes(comment.getDislikes() + 1);
+        } else {
+            comment.setDislikes(1);
+        }
+        var createdComment = commentRepository.save(comment);
+        return commentMapper.toCommentDto(createdComment);
     }
 
     private CompilationDtoResponse saveEventsCompilation(Set<Long> eventIds, Compilation compilation) {
