@@ -675,7 +675,7 @@ public class EventService {
             var request = requestRepository.findByEventIdAndRequesterId(eventId, authorId);
             if (!request.getStatus().equals(Status.CONFIRMED)) {
                 comment.setStatus(State.REJECTED);
-                commentMapper.toCommentDto(commentRepository.save(comment));
+                commentRepository.save(comment);
                 throw new BadRequestException("Нельзя оставить комментарий на не посещенное событие");
             }
             if (request.getStatus().equals(Status.CONFIRMED) && comment.getStatus().equals(State.PENDING)) {
