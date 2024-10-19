@@ -1,5 +1,6 @@
 # java-explore-with-me
 ExploreWithMe application project.
+https://github.com/AlexxCobb/java-explore-with-me/pull/3
 
 
 Приложение ExploreWithMe (англ. «исследуй со мной»). 
